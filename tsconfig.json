@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "noImplicitAny": true,
+    "strict": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmitOnError": true,
+    "forceConsistentCasingInFileNames": true,
+    "target": "ESNext",
+    "skipLibCheck": true
+  }
+}
