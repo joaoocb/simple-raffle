@@ -1,6 +1,6 @@
-# Simple ERC20 Raffle Contract
+# Simple Raffle Contract
 
-This project demonstrates a basic implementation of a raffle contract using Solidity and an ERC20 token. Users can enter the raffle by spending a specified amount of tokens, and the winner is randomly selected using the blockhash of a future block.
+This project demonstrates a basic implementation of a raffle contract using Solidity. Users can enter the raffle by spending a specified amount of Ether, and the winner is randomly selected.
 
 ## Getting Started
 
@@ -22,13 +22,9 @@ Deploy the contract to your desired network using Hardhat:
 npx hardhat ignition deploy ignition/modules/Raffle.ts --network NETWORK_NAME
 ````
 
-### Usage
-
-Usage instructions here...
-
 ## Security Considerations
 
-This implementation uses the block hash for randomness, which has limitations in terms of security and predictability.
+This implementation uses the block timestamp and hash for randomness, which has limitations in terms of security and predictability.
 Always exercise caution and conduct thorough testing before deploying to a live environment.
 
 ## Contributing
