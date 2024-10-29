@@ -4,7 +4,7 @@
   "main": "index.js",
   "author": "Joao Barbosa (joaoocb@gmail.com)",
   "license": "ISC",
-  "description": "Basic implementation of a raffle contract using Solidity and an ERC20 token",
+  "description": "Basic implementation of a raffle contract using Solidity",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
     "hardhat": "^2.22.15"
