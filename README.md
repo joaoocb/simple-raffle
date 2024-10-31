@@ -1,6 +1,6 @@
 # Simple Raffle Contract
 
-This project demonstrates a basic implementation of a raffle contract using Solidity. Users can enter the raffle by spending a specified amount of Ether, and the winner is randomly selected.
+This project demonstrates a basic implementation of a raffle contract using Solidity. Users can initiate various raffles and participate by spending a predetermined amount of Ether. A winner is randomly selected after the end of a raffle.
 
 ## Getting Started
 
@@ -19,7 +19,7 @@ npx hardhat compile
 
 Deploy the contract to your desired network using Hardhat:
 ````shell
-npx hardhat ignition deploy ignition/modules/Raffle.ts --network NETWORK_NAME
+npx hardhat ignition deploy ignition/modules/SimpleRaffle.ts --network NETWORK_NAME
 ````
 
 ## Security Considerations
@@ -35,6 +35,6 @@ Contributions are welcome! Feel free to open issues or submit pull requests.
 
 This project is licensed under the ISC License.
 
-## Disclaimer:
+## Disclaimer
 
 This code is provided for educational and demonstration purposes only. It is not audited and should not be used in production environments without thorough review and security analysis.
