@@ -12,6 +12,10 @@ contract SimpleRaffle {
         mapping(uint256 => address) tickets;
     }
 
+    event RaffleCreated(uint256 indexed raffleId, address indexed owner);
+    event TicketPurchased(uint256 indexed raffleId, uint256 ticketId, address participant);
+    event WinnerPicked(uint256 indexed raffleId, address indexed winner);
+
     uint256 public numRaffles;
     mapping(uint256 => Raffle) public raffles;
 
@@ -33,6 +37,8 @@ contract SimpleRaffle {
         raffle.expirationTimestamp = expirationTimestamp;
         raffle.ticketPrice = ticketPrice;
 
+        emit RaffleCreated(raffleId, msg.sender);
+
         return raffleId;
     }
 
@@ -48,6 +54,8 @@ contract SimpleRaffle {
         raffle.ticketsSold = ticketId + 1;
 
         raffle.tickets[ticketId] = msg.sender;
+
+        emit TicketPurchased(raffleId, ticketId, msg.sender);
 
         return ticketId;
     }
@@ -74,5 +82,7 @@ contract SimpleRaffle {
         } else {
             raffle.winner.transfer(raffleBalance);
         }
+
+        emit WinnerPicked(raffleId, raffle.winner);
     }
 }
