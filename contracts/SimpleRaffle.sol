@@ -41,7 +41,7 @@ contract SimpleRaffle {
 
         Raffle storage raffle = raffles[raffleId];
 
-        require(msg.value == raffle.ticketPrice, "Invalid ticket price");
+        require(msg.value == raffle.ticketPrice, "Invalid value");
         require(block.timestamp < raffle.expirationTimestamp, "Raffle has expired");
 
         uint256 ticketId = raffle.ticketsSold;

@@ -214,7 +214,7 @@ describe("SimpleRaffle", function () {
 
       const invalidPrice = ticketPrice + parseGwei("0.005");
       const transaction = raffleContract.write.enterRaffle([raffleId], {account: user1.account, value: invalidPrice});
-      await expect(transaction).to.be.rejectedWith("Invalid ticket price");
+      await expect(transaction).to.be.rejectedWith("Invalid value");
 
       const raffle = await raffleContract.read.raffles([raffleId]);
       expect(raffle[4]).to.equal(0n);
