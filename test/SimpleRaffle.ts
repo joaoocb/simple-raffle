@@ -1,7 +1,7 @@
-import {time, loadFixture} from "@nomicfoundation/hardhat-toolbox-viem/network-helpers";
+import {loadFixture, time} from "@nomicfoundation/hardhat-toolbox-viem/network-helpers";
 import {expect} from "chai";
 import hre from "hardhat";
-import {getAddress, parseGwei, zeroAddress} from "viem";
+import {getAddress, maxUint256, parseGwei, zeroAddress} from "viem";
 
 const ONE_DAY_IN_SECS = 24 * 60 * 60;
 
@@ -25,9 +25,10 @@ describe("SimpleRaffle", function () {
     const expirationTimestamp = BigInt((await time.latest()) + ONE_DAY_IN_SECS);
     const ticketPrice = parseGwei("0.25");
 
-    const raffleId = (await raffleContract.simulate.createRaffle([prize, expirationTimestamp, ticketPrice])).result;
+    const args: [bigint, bigint, bigint, bigint] = [prize, expirationTimestamp, ticketPrice, maxUint256];
 
-    const transaction = raffleContract.write.createRaffle([prize, expirationTimestamp, ticketPrice]);
+    const raffleId = (await raffleContract.simulate.createRaffle(args)).result;
+    const transaction = raffleContract.write.createRaffle(args);
     await expect(transaction).to.be.fulfilled;
 
     return {
@@ -127,8 +128,9 @@ describe("SimpleRaffle", function () {
       expect(raffle[1]).to.equal(prize);
       expect(raffle[2]).to.equal(expirationTimestamp);
       expect(raffle[3]).to.equal(ticketPrice);
-      expect(raffle[4]).to.equal(0n);
-      expect(raffle[5]).to.equal(zeroAddress);
+      expect(raffle[4]).to.equal(maxUint256);
+      expect(raffle[5]).to.equal(0n);
+      expect(raffle[6]).to.equal(zeroAddress);
     });
 
     it("Should fail if prize value is 0", async function () {
@@ -138,7 +140,7 @@ describe("SimpleRaffle", function () {
       const expirationTimestamp = BigInt((await time.latest()) + ONE_DAY_IN_SECS);
       const ticketPrice = parseGwei("0.5");
 
-      const transaction = raffleContract.write.createRaffle([prize, expirationTimestamp, ticketPrice]);
+      const transaction = raffleContract.write.createRaffle([prize, expirationTimestamp, ticketPrice, maxUint256]);
       await expect(transaction).to.be.rejectedWith("Prize value should be greater than 0");
     });
 
@@ -149,7 +151,7 @@ describe("SimpleRaffle", function () {
       const expirationTimestamp = 0n;
       const ticketPrice = parseGwei("0.5");
 
-      const transaction = raffleContract.write.createRaffle([prize, expirationTimestamp, ticketPrice]);
+      const transaction = raffleContract.write.createRaffle([prize, expirationTimestamp, ticketPrice, maxUint256]);
       await expect(transaction).to.be.rejectedWith("Expiration timestamp should be in the future");
     });
 
@@ -160,7 +162,7 @@ describe("SimpleRaffle", function () {
       const expirationTimestamp = BigInt((await time.latest()) + ONE_DAY_IN_SECS);
       const ticketPrice = parseGwei("0");
 
-      const transaction = raffleContract.write.createRaffle([prize, expirationTimestamp, ticketPrice]);
+      const transaction = raffleContract.write.createRaffle([prize, expirationTimestamp, ticketPrice, maxUint256]);
       await expect(transaction).to.be.rejectedWith("Ticket price should be greater than 0");
     });
 
@@ -171,9 +173,20 @@ describe("SimpleRaffle", function () {
       const expirationTimestamp = BigInt((await time.latest()) + ONE_DAY_IN_SECS);
       const ticketPrice = parseGwei("1");
 
-      const transaction = raffleContract.write.createRaffle([prize, expirationTimestamp, ticketPrice]);
+      const transaction = raffleContract.write.createRaffle([prize, expirationTimestamp, ticketPrice, maxUint256]);
       await expect(transaction).to.be.rejectedWith("Prize value should be greater than ticket price");
     });
+  });
+
+  it("Should fail if total tickets is 0", async function () {
+    const {raffleContract} = await loadFixture(deployRaffle);
+
+    const prize = parseGwei("1");
+    const expirationTimestamp = BigInt((await time.latest()) + ONE_DAY_IN_SECS);
+    const ticketPrice = parseGwei("0.5");
+
+    const transaction = raffleContract.write.createRaffle([prize, expirationTimestamp, ticketPrice, 0n]);
+    await expect(transaction).to.be.rejectedWith("Total tickets should be greater than 0");
   });
 
   describe("Enter Raffle", function () {
@@ -181,7 +194,7 @@ describe("SimpleRaffle", function () {
       const {raffleContract, raffleId} = await loadFixture(enterRaffle);
 
       const raffle = await raffleContract.read.raffles([raffleId]);
-      expect(raffle[4]).to.equal(1n);
+      expect(raffle[5]).to.equal(1n);
     });
 
     it("Should allow an account to enter a raffle multiple times", async function () {
@@ -195,7 +208,7 @@ describe("SimpleRaffle", function () {
       await expect(transaction3).to.be.fulfilled;
 
       const raffle = await raffleContract.read.raffles([raffleId]);
-      expect(raffle[4]).to.equal(3n);
+      expect(raffle[5]).to.equal(3n);
     });
 
     it("Should fail when entering an invalid raffle", async function () {
@@ -206,7 +219,7 @@ describe("SimpleRaffle", function () {
       await expect(transaction).to.be.rejectedWith("Invalid raffle ID");
 
       const raffle = await raffleContract.read.raffles([raffleId]);
-      expect(raffle[4]).to.equal(0n);
+      expect(raffle[5]).to.equal(0n);
     });
 
     it("Should fail when entering a raffle sending an invalid Ether amount", async function () {
@@ -217,7 +230,7 @@ describe("SimpleRaffle", function () {
       await expect(transaction).to.be.rejectedWith("Invalid value");
 
       const raffle = await raffleContract.read.raffles([raffleId]);
-      expect(raffle[4]).to.equal(0n);
+      expect(raffle[5]).to.equal(0n);
     });
 
     it("Should fail when entering an expired raffle", async function () {
@@ -229,7 +242,7 @@ describe("SimpleRaffle", function () {
       await expect(transaction).to.be.rejectedWith("Raffle has expired");
 
       const raffle = await raffleContract.read.raffles([raffleId]);
-      expect(raffle[4]).to.equal(0n);
+      expect(raffle[5]).to.equal(0n);
     });
   });
 
@@ -280,11 +293,11 @@ describe("SimpleRaffle", function () {
 
       await expect(raffleContract.write.pickWinner([raffleId])).to.be.fulfilled;
 
-      const raffle = await raffleContract.read.raffles([raffleId]);
-      expect(raffle[5]).to.not.be.equal(zeroAddress);
+      const [,,,,,, winner] = await raffleContract.read.raffles([raffleId]);
+      expect(winner).to.not.be.equal(zeroAddress);
 
       const finalBalances = await getBalances(addresses);
-      validateUserBalances(raffle[5], addresses, initialBalances, finalBalances, prize);
+      validateUserBalances(winner, addresses, initialBalances, finalBalances, prize);
     });
 
     it("Should pick winner even for unfulfilled raffle", async function () {
@@ -297,11 +310,11 @@ describe("SimpleRaffle", function () {
 
       await expect(raffleContract.write.pickWinner([raffleId])).to.be.fulfilled;
 
-      const raffle = await raffleContract.read.raffles([raffleId]);
+      const [,,, ticketPrice,, soldTickets, winner] = await raffleContract.read.raffles([raffleId]);
 
       const finalBalances = await getBalances(addresses);
-      const raffleBalance = raffle[3] * raffle[4];
-      validateUserBalances(raffle[5], addresses, initialBalances, finalBalances, raffleBalance);
+      const raffleBalance = ticketPrice * soldTickets;
+      validateUserBalances(winner, addresses, initialBalances, finalBalances, raffleBalance);
     });
 
     it("Should fail when calling pickWinner of an invalid raffle", async function () {

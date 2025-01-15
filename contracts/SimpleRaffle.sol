@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: ISC
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.28;
 
 contract SimpleRaffle {
     struct Raffle {
@@ -7,7 +7,8 @@ contract SimpleRaffle {
         uint256 prize;
         uint256 expirationTimestamp;
         uint256 ticketPrice;
-        uint256 ticketsSold;
+        uint256 totalTickets;
+        uint256 soldTickets;
         address payable winner;
         mapping(uint256 => address) tickets;
     }
@@ -22,11 +23,15 @@ contract SimpleRaffle {
     constructor() {
     }
 
-    function createRaffle(uint256 prize, uint256 expirationTimestamp, uint256 ticketPrice) external returns (uint256) {
+    function createRaffle(uint256 prize, uint256 expirationTimestamp, uint256 ticketPrice, uint256 totalTickets)
+        external
+        returns (uint256)
+    {
         require(prize > 0, "Prize value should be greater than 0");
         require(expirationTimestamp > block.timestamp, "Expiration timestamp should be in the future");
         require(ticketPrice > 0, "Ticket price should be greater than 0");
         require(prize > ticketPrice, "Prize value should be greater than ticket price");
+        require(totalTickets > 0, "Total tickets should be greater than 0");
 
         uint256 raffleId = numRaffles;
         numRaffles = raffleId + 1;
@@ -36,6 +41,7 @@ contract SimpleRaffle {
         raffle.prize = prize;
         raffle.expirationTimestamp = expirationTimestamp;
         raffle.ticketPrice = ticketPrice;
+        raffle.totalTickets = totalTickets;
 
         emit RaffleCreated(raffleId, msg.sender);
 
@@ -49,9 +55,10 @@ contract SimpleRaffle {
 
         require(msg.value == raffle.ticketPrice, "Invalid value");
         require(block.timestamp < raffle.expirationTimestamp, "Raffle has expired");
+        require(raffle.soldTickets < raffle.totalTickets, "Raffle sold out");
 
-        uint256 ticketId = raffle.ticketsSold;
-        raffle.ticketsSold = ticketId + 1;
+        uint256 ticketId = raffle.soldTickets;
+        raffle.soldTickets = ticketId + 1;
 
         raffle.tickets[ticketId] = msg.sender;
 
@@ -64,17 +71,17 @@ contract SimpleRaffle {
         require(raffleId < numRaffles, "Invalid raffle ID");
 
         Raffle storage raffle = raffles[raffleId];
-        uint256 ticketsSold = raffle.ticketsSold;
+        uint256 soldTickets = raffle.soldTickets;
 
         require(block.timestamp > raffle.expirationTimestamp, "Raffle has not ended yet");
-        require(ticketsSold != 0, "No participants in the raffle");
+        require(soldTickets != 0, "No participants in the raffle");
         require(raffle.winner == address(0), "Winner has already been picked");
 
         uint256 seed = uint256(keccak256(abi.encodePacked(block.timestamp, blockhash(block.number - 1))));
-        uint256 randomNumber = uint256(seed) % ticketsSold;
+        uint256 randomNumber = uint256(seed) % soldTickets;
         raffle.winner = payable(raffle.tickets[randomNumber]);
 
-        uint256 raffleBalance = raffle.ticketPrice * ticketsSold;
+        uint256 raffleBalance = raffle.ticketPrice * soldTickets;
         uint256 prize = raffle.prize;
         if (raffleBalance > prize) {
             raffle.winner.transfer(prize);
