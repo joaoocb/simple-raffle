@@ -1,12 +1,17 @@
 {
   "name": "simple-raffle",
   "version": "0.1.0",
+  "description": "Basic implementation of a raffle contract using Solidity",
   "main": "index.js",
+  "scripts": {
+    "build": "npx hardhat compile",
+    "build:clean": "npx hardhat clean && npx hardhat compile",
+    "test": "npx hardhat test"
+  },
   "author": "Joao Barbosa (joaoocb@gmail.com)",
   "license": "ISC",
-  "description": "Basic implementation of a raffle contract using Solidity",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
-    "hardhat": "^2.22.15"
+    "hardhat": "^2.22.18"
   }
 }
