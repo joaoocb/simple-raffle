@@ -176,17 +176,17 @@ describe("SimpleRaffle", function () {
       const transaction = raffleContract.write.createRaffle([prize, expirationTimestamp, ticketPrice, maxUint256]);
       await expect(transaction).to.be.rejectedWith("Prize value should be greater than ticket price");
     });
-  });
 
-  it("Should fail if total tickets is 0", async function () {
-    const {raffleContract} = await loadFixture(deployRaffle);
+    it("Should fail if total tickets is 0", async function () {
+      const {raffleContract} = await loadFixture(deployRaffle);
 
-    const prize = parseGwei("1");
-    const expirationTimestamp = BigInt((await time.latest()) + ONE_DAY_IN_SECS);
-    const ticketPrice = parseGwei("0.5");
+      const prize = parseGwei("1");
+      const expirationTimestamp = BigInt((await time.latest()) + ONE_DAY_IN_SECS);
+      const ticketPrice = parseGwei("0.5");
 
-    const transaction = raffleContract.write.createRaffle([prize, expirationTimestamp, ticketPrice, 0n]);
-    await expect(transaction).to.be.rejectedWith("Total tickets should be greater than 0");
+      const transaction = raffleContract.write.createRaffle([prize, expirationTimestamp, ticketPrice, 0n]);
+      await expect(transaction).to.be.rejectedWith("Total tickets should be greater than 0");
+    });
   });
 
   describe("Enter Raffle", function () {
@@ -243,6 +243,27 @@ describe("SimpleRaffle", function () {
 
       const raffle = await raffleContract.read.raffles([raffleId]);
       expect(raffle[5]).to.equal(0n);
+    });
+
+    it("Should fail when entering a sold out raffle", async function () {
+      const {raffleContract, user1} = await loadFixture(deployRaffle);
+
+      const prize = parseGwei("1");
+      const expirationTimestamp = BigInt((await time.latest()) + ONE_DAY_IN_SECS);
+      const ticketPrice = parseGwei("0.5");
+      const totalTickets = 5n;
+
+      const args: [bigint, bigint, bigint, bigint] = [prize, expirationTimestamp, ticketPrice, totalTickets];
+      const raffleId = (await raffleContract.simulate.createRaffle(args)).result;
+      await raffleContract.write.createRaffle(args);
+
+      for (let i = 0; i < totalTickets; i++) {
+        const transaction = raffleContract.write.enterRaffle([raffleId], {account: user1.account, value: ticketPrice});
+        await expect(transaction).to.be.fulfilled;
+      }
+
+      const transaction = raffleContract.write.enterRaffle([raffleId], {account: user1.account, value: ticketPrice});
+      await expect(transaction).to.be.rejectedWith("Raffle sold out");
     });
   });
 
