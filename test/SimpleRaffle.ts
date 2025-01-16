@@ -45,9 +45,10 @@ describe("SimpleRaffle", function () {
   async function enterRaffle() {
     const {raffleContract, user1, ticketPrice, raffleId} = await loadFixture(createRaffle);
 
-    const ticketId = (await raffleContract.simulate.enterRaffle([raffleId], {value: ticketPrice})).result;
+    const options = {account: user1.account.address, value: ticketPrice};
 
-    const transaction = raffleContract.write.enterRaffle([raffleId], {account: user1.account, value: ticketPrice});
+    const ticketId = (await raffleContract.simulate.enterRaffle([raffleId], options)).result;
+    const transaction = raffleContract.write.enterRaffle([raffleId], options);
     await expect(transaction).to.be.fulfilled;
 
     return {
@@ -265,6 +266,16 @@ describe("SimpleRaffle", function () {
       const transaction = raffleContract.write.enterRaffle([raffleId], {account: user1.account, value: ticketPrice});
       await expect(transaction).to.be.rejectedWith("Raffle sold out");
     });
+  });
+
+  it("Should fail if owner enters the raffle", async function () {
+    const {raffleContract, raffleId, owner, ticketPrice} = await loadFixture(createRaffle);
+
+    const transaction = raffleContract.write.enterRaffle([raffleId], {account: owner.account, value: ticketPrice});
+    await expect(transaction).to.be.rejectedWith("Owner can not enter raffle");
+
+    const raffle = await raffleContract.read.raffles([raffleId]);
+    expect(raffle[5]).to.equal(0n);
   });
 
   describe("Pick Winners", function () {
