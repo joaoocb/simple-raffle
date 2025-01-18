@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: ISC
 pragma solidity ^0.8.28;
 
-contract SimpleRaffle {
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+
+contract SimpleRaffle is ReentrancyGuard {
     struct Raffle {
         address payable owner;
         uint256 prize;
@@ -68,7 +70,7 @@ contract SimpleRaffle {
         return ticketId;
     }
 
-    function pickWinner(uint256 raffleId) public {
+    function pickWinner(uint256 raffleId) public nonReentrant {
         require(raffleId < numRaffles, "Invalid raffle ID");
 
         Raffle storage raffle = raffles[raffleId];
