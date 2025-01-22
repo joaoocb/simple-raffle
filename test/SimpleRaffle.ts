@@ -89,6 +89,16 @@ describe("SimpleRaffle", function () {
     };
   }
 
+  async function pickWinner() {
+    const {raffleContract, raffleId} = await loadFixture(getFulfilledRaffle);
+
+    await time.increase(ONE_DAY_IN_SECS + 1);
+
+    await expect(raffleContract.write.pickWinner([raffleId])).to.be.fulfilled;
+
+    return {raffleContract, raffleId};
+  }
+
   describe("Deployment", function () {
     it("Should revert when receiving any Ether amount", async function () {
       const {raffleContract, user1} = await loadFixture(deployRaffle);
@@ -116,6 +126,7 @@ describe("SimpleRaffle", function () {
       expect(raffle[3]).to.equal(ticketPrice);
       expect(raffle[4]).to.equal(maxUint256);
       expect(raffle[5]).to.equal(zeroAddress);
+      expect(raffle[6]).to.equal(false);
     });
 
     it("Should fail if prize value is 0", async function () {
@@ -298,57 +309,16 @@ describe("SimpleRaffle", function () {
   });
 
   describe("Pick Winners", function () {
-    async function getBalances(addresses: `0x${string}`[]) {
-      const publicClient = await hre.viem.getPublicClient();
-
-      const balances = [];
-      for (const address of addresses) {
-        balances.push(await publicClient.getBalance({address}));
-      }
-
-      return balances;
-    }
-
-    function validateUserBalances(
-      winner: `0x${string}`,
-      addresses: `0x${string}`[],
-      initialBalances: bigint[],
-      finalBalances: bigint[],
-      prize: bigint
-    ) {
-      for (let i = 0; i < addresses.length; i++) {
-        if (addresses[i] === winner) {
-          expect(finalBalances[i]).to.equal(initialBalances[i] + prize);
-        } else {
-          expect(finalBalances[i]).to.equal(initialBalances[i]);
-        }
-      }
-    }
-
-    it("Should pick winner and distribute funds", async function () {
-      const {
-        raffleContract,
-        user1,
-        user2,
-        user3,
-        user4,
-        user5,
-        prize,
-        raffleId,
-      } = await loadFixture(getFulfilledRaffle);
+    it("Should pick winner", async function () {
+      const {raffleContract, raffleId} = await loadFixture(getFulfilledRaffle);
 
       await time.increase(ONE_DAY_IN_SECS + 1);
 
-      const addresses = [user1, user2, user3, user4, user5].map(user => getAddress(user.account.address));
-      const initialBalances = await getBalances(addresses);
-
       await expect(raffleContract.write.pickWinner([raffleId])).to.be.fulfilled;
 
-      const [, , , , , winner] = await raffleContract.read.raffles([raffleId]);
+      const [, , , , , winner, isPaidOut] = await raffleContract.read.raffles([raffleId]);
       expect(winner).to.not.be.equal(zeroAddress);
-
-      const finalBalances = await getBalances(addresses);
-      validateUserBalances(winner, addresses, initialBalances, finalBalances, prize);
+      expect(isPaidOut).to.be.equal(false);
     });
 
     it("Should fail when calling pickWinner of an invalid raffle", async function () {
@@ -380,6 +350,68 @@ describe("SimpleRaffle", function () {
       await expect(raffleContract.write.pickWinner([raffleId])).to.be.fulfilled;
 
       await expect(raffleContract.write.pickWinner([raffleId])).to.be.rejectedWith("Winner has already been picked");
+    });
+  });
+
+  describe("Pay Winners", function () {
+    async function getBalances(addresses: `0x${string}`[]) {
+      const publicClient = await hre.viem.getPublicClient();
+
+      const balances = [];
+      for (const address of addresses) {
+        balances.push(await publicClient.getBalance({address}));
+      }
+
+      return balances;
+    }
+
+    function validateUserBalances(
+      winner: `0x${string}`,
+      addresses: `0x${string}`[],
+      initialBalances: bigint[],
+      finalBalances: bigint[],
+      prize: bigint
+    ) {
+      for (let i = 0; i < addresses.length; i++) {
+        if (addresses[i] === winner) {
+          expect(finalBalances[i]).to.equal(initialBalances[i] + prize);
+        } else {
+          expect(finalBalances[i]).to.equal(initialBalances[i]);
+        }
+      }
+    }
+
+    it("Should distribute raffle's prize and revenue", async function () {
+      const {raffleContract, raffleId} = await loadFixture(pickWinner);
+
+      const [, , user1, user2, user3, user4, user5] = await hre.viem.getWalletClients();
+
+      const addresses = [user1, user2, user3, user4, user5].map(user => getAddress(user.account.address));
+      const initialBalances = await getBalances(addresses);
+
+      await expect(raffleContract.write.payWinner([raffleId])).to.be.fulfilled;
+
+      const [, prize, , , , winner, isPaidOut] = await raffleContract.read.raffles([raffleId]);
+      expect(winner).to.not.be.equal(zeroAddress);
+      expect(isPaidOut).to.be.equal(true);
+
+      const finalBalances = await getBalances(addresses);
+
+      validateUserBalances(winner, addresses, initialBalances, finalBalances, prize);
+    });
+
+    it("Should fail if winner was not picked yet", async function () {
+      const {raffleContract, raffleId} = await loadFixture(getFulfilledRaffle);
+
+      await expect(raffleContract.write.payWinner([raffleId])).to.be.rejectedWith("Winner has not been picked yet");
+    });
+
+    it("Should fail if winner was already paid", async function () {
+      const {raffleContract, raffleId} = await loadFixture(pickWinner);
+
+      await expect(raffleContract.write.payWinner([raffleId])).to.be.fulfilled;
+
+      await expect(raffleContract.write.payWinner([raffleId])).to.be.rejectedWith("Winner has already been paid");
     });
   });
 });

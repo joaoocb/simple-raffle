@@ -11,12 +11,14 @@ contract SimpleRaffle is ReentrancyGuard {
         uint256 ticketPrice;
         uint256 totalTickets;
         address payable winner;
+        bool isPaidOut;
         address[] tickets;
     }
 
     event RaffleCreated(uint256 indexed raffleId, address indexed owner);
     event TicketPurchased(uint256 indexed raffleId, uint256 ticketId, address participant);
     event WinnerPicked(uint256 indexed raffleId, uint256 winningTicketId, address indexed winner);
+    event WinnerPaidOut(uint256 indexed raffleId, address indexed winner, uint256 prize);
 
     uint256 public numRaffles;
     mapping(uint256 => Raffle) public raffles;
@@ -78,7 +80,7 @@ contract SimpleRaffle is ReentrancyGuard {
         return soldTickets;
     }
 
-    function pickWinner(uint256 raffleId) public nonReentrant {
+    function pickWinner(uint256 raffleId) external {
         require(raffleId < numRaffles, "Invalid raffle ID");
 
         Raffle storage raffle = raffles[raffleId];
@@ -92,12 +94,22 @@ contract SimpleRaffle is ReentrancyGuard {
         uint256 winningTicketId = uint256(seed) % soldTickets;
         raffle.winner = payable(raffle.tickets[winningTicketId]);
 
+        emit WinnerPicked(raffleId, winningTicketId, raffle.winner);
+    }
+
+    function payWinner(uint256 raffleId) external nonReentrant {
+        Raffle storage raffle = raffles[raffleId];
+
+        require(raffle.winner != address(0), "Winner has not been picked yet");
+        require(!raffle.isPaidOut, "Winner has already been paid");
+
         uint256 prize = raffle.prize;
+        raffle.isPaidOut = true;
         raffle.winner.transfer(prize);
 
-        uint256 raffleBalance = raffle.ticketPrice * soldTickets;
-        raffle.owner.transfer(raffleBalance);
+        uint256 raffleRevenue = raffle.ticketPrice * raffle.tickets.length;
+        raffle.owner.transfer(raffleRevenue);
 
-        emit WinnerPicked(raffleId, winningTicketId, raffle.winner);
+        emit WinnerPaidOut(raffleId, raffle.winner, prize);
     }
 }
