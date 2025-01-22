@@ -32,11 +32,14 @@ contract SimpleRaffle is ReentrancyGuard {
     constructor() {
     }
 
-    function createRaffle(uint256 prize, uint256 expirationTimestamp, uint256 ticketPrice, uint256 totalTickets)
-        external
-        returns (uint256)
+    function createRaffle(uint256 expirationTimestamp, uint256 ticketPrice, uint256 totalTickets)
+    external
+    payable
+    returns (uint256)
     {
-        require(prize > 0, "Prize value should be greater than 0");
+        uint256 prize = msg.value;
+
+        require(prize > 0, "Insufficient ETH sent to fund raffle");
         require(expirationTimestamp > block.timestamp, "Expiration timestamp should be in the future");
         require(ticketPrice > 0, "Ticket price should be greater than 0");
         require(prize > ticketPrice, "Prize value should be greater than ticket price");
@@ -63,7 +66,7 @@ contract SimpleRaffle is ReentrancyGuard {
         Raffle storage raffle = raffles[raffleId];
         uint256 soldTickets = raffle.tickets.length;
 
-        require(msg.value == raffle.ticketPrice, "Invalid value");
+        require(msg.value == raffle.ticketPrice, "Invalid amount of ETH sent to buy ticket");
         require(block.timestamp < raffle.expirationTimestamp, "Raffle has expired");
         require(soldTickets < raffle.totalTickets, "Raffle sold out");
         require(msg.sender != raffle.owner, "Owner can not enter raffle");
@@ -89,14 +92,11 @@ contract SimpleRaffle is ReentrancyGuard {
         uint256 winningTicketId = uint256(seed) % soldTickets;
         raffle.winner = payable(raffle.tickets[winningTicketId]);
 
-        uint256 raffleBalance = raffle.ticketPrice * soldTickets;
         uint256 prize = raffle.prize;
-        if (raffleBalance > prize) {
-            raffle.winner.transfer(prize);
-            raffle.owner.transfer(raffleBalance - prize);
-        } else {
-            raffle.winner.transfer(raffleBalance);
-        }
+        raffle.winner.transfer(prize);
+
+        uint256 raffleBalance = raffle.ticketPrice * soldTickets;
+        raffle.owner.transfer(raffleBalance);
 
         emit WinnerPicked(raffleId, winningTicketId, raffle.winner);
     }

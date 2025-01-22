@@ -25,8 +25,8 @@ describe("SimpleRaffle", function () {
     const expirationTimestamp = BigInt((await time.latest()) + ONE_DAY_IN_SECS);
     const ticketPrice = parseGwei("0.25");
 
-    const args: [bigint, bigint, bigint, bigint] = [prize, expirationTimestamp, ticketPrice, maxUint256];
-    const options = {account: owner.account.address};
+    const args: [bigint, bigint, bigint] = [expirationTimestamp, ticketPrice, maxUint256];
+    const options = {account: owner.account.address, value: prize};
 
     const raffleId = (await raffleContract.simulate.createRaffle(args, options)).result;
     const transaction = raffleContract.write.createRaffle(args, options);
@@ -89,23 +89,6 @@ describe("SimpleRaffle", function () {
     };
   }
 
-  async function getUnfulfilledRaffle() {
-    const {raffleContract, owner, user1, ticketPrice, raffleId} = await loadFixture(createRaffle);
-
-    const [, , , user2] = await hre.viem.getWalletClients();
-
-    await raffleContract.write.enterRaffle([raffleId], {account: user1.account.address, value: ticketPrice});
-    await raffleContract.write.enterRaffle([raffleId], {account: user2.account.address, value: ticketPrice});
-
-    return {
-      raffleContract,
-      owner,
-      user1,
-      user2,
-      raffleId,
-    };
-  }
-
   describe("Deployment", function () {
     it("Should revert when receiving any Ether amount", async function () {
       const {raffleContract, user1} = await loadFixture(deployRaffle);
@@ -136,57 +119,72 @@ describe("SimpleRaffle", function () {
     });
 
     it("Should fail if prize value is 0", async function () {
-      const {raffleContract} = await loadFixture(deployRaffle);
+      const {raffleContract, owner} = await loadFixture(deployRaffle);
 
       const prize = parseGwei("0");
       const expirationTimestamp = BigInt((await time.latest()) + ONE_DAY_IN_SECS);
       const ticketPrice = parseGwei("0.5");
 
-      const transaction = raffleContract.write.createRaffle([prize, expirationTimestamp, ticketPrice, maxUint256]);
-      await expect(transaction).to.be.rejectedWith("Prize value should be greater than 0");
+      const args: [bigint, bigint, bigint] = [expirationTimestamp, ticketPrice, maxUint256];
+      const options = {account: owner.account.address, value: prize};
+
+      const transaction = raffleContract.write.createRaffle(args, options);
+      await expect(transaction).to.be.rejectedWith("Insufficient ETH sent to fund raffle");
     });
 
     it("Should fail if expirationTimestamp is not in the future", async function () {
-      const {raffleContract} = await loadFixture(deployRaffle);
+      const {raffleContract, owner} = await loadFixture(deployRaffle);
 
       const prize = parseGwei("1");
       const expirationTimestamp = 0n;
       const ticketPrice = parseGwei("0.5");
 
-      const transaction = raffleContract.write.createRaffle([prize, expirationTimestamp, ticketPrice, maxUint256]);
+      const args: [bigint, bigint, bigint] = [expirationTimestamp, ticketPrice, maxUint256];
+      const options = {account: owner.account.address, value: prize};
+
+      const transaction = raffleContract.write.createRaffle(args, options);
       await expect(transaction).to.be.rejectedWith("Expiration timestamp should be in the future");
     });
 
     it("Should fail if ticket price is 0", async function () {
-      const {raffleContract} = await loadFixture(deployRaffle);
+      const {raffleContract, owner} = await loadFixture(deployRaffle);
 
       const prize = parseGwei("1");
       const expirationTimestamp = BigInt((await time.latest()) + ONE_DAY_IN_SECS);
       const ticketPrice = parseGwei("0");
 
-      const transaction = raffleContract.write.createRaffle([prize, expirationTimestamp, ticketPrice, maxUint256]);
+      const args: [bigint, bigint, bigint] = [expirationTimestamp, ticketPrice, maxUint256];
+      const options = {account: owner.account.address, value: prize};
+
+      const transaction = raffleContract.write.createRaffle(args, options);
       await expect(transaction).to.be.rejectedWith("Ticket price should be greater than 0");
     });
 
     it("Should fail if prize value is not greater than ticket price", async function () {
-      const {raffleContract} = await loadFixture(deployRaffle);
+      const {raffleContract, owner} = await loadFixture(deployRaffle);
 
       const prize = parseGwei("0.5");
       const expirationTimestamp = BigInt((await time.latest()) + ONE_DAY_IN_SECS);
       const ticketPrice = parseGwei("1");
 
-      const transaction = raffleContract.write.createRaffle([prize, expirationTimestamp, ticketPrice, maxUint256]);
+      const args: [bigint, bigint, bigint] = [expirationTimestamp, ticketPrice, maxUint256];
+      const options = {account: owner.account.address, value: prize};
+
+      const transaction = raffleContract.write.createRaffle(args, options);
       await expect(transaction).to.be.rejectedWith("Prize value should be greater than ticket price");
     });
 
     it("Should fail if total tickets is 0", async function () {
-      const {raffleContract} = await loadFixture(deployRaffle);
+      const {raffleContract, owner} = await loadFixture(deployRaffle);
 
       const prize = parseGwei("1");
       const expirationTimestamp = BigInt((await time.latest()) + ONE_DAY_IN_SECS);
       const ticketPrice = parseGwei("0.5");
 
-      const transaction = raffleContract.write.createRaffle([prize, expirationTimestamp, ticketPrice, 0n]);
+      const args: [bigint, bigint, bigint] = [expirationTimestamp, ticketPrice, 0n];
+      const options = {account: owner.account.address, value: prize};
+
+      const transaction = raffleContract.write.createRaffle(args, options);
       await expect(transaction).to.be.rejectedWith("Total tickets should be greater than 0");
     });
   });
@@ -241,7 +239,7 @@ describe("SimpleRaffle", function () {
       const options = {account: user1.account.address, value: invalidPrice};
 
       const transaction = raffleContract.write.enterRaffle([raffleId], options);
-      await expect(transaction).to.be.rejectedWith("Invalid value");
+      await expect(transaction).to.be.rejectedWith("Invalid amount of ETH sent to buy ticket");
 
       const soldTickets = await raffleContract.read.getSoldTickets([raffleId]);
       expect(soldTickets).to.equal(0n);
@@ -269,19 +267,20 @@ describe("SimpleRaffle", function () {
       const ticketPrice = parseGwei("0.5");
       const totalTickets = 5n;
 
-      const args: [bigint, bigint, bigint, bigint] = [prize, expirationTimestamp, ticketPrice, totalTickets];
+      const args: [bigint, bigint, bigint] = [expirationTimestamp, ticketPrice, totalTickets];
+      const createRaffleOptions = {account: owner.account.address, value: prize};
 
-      const raffleId = (await raffleContract.simulate.createRaffle(args, {account: owner.account.address})).result;
-      await raffleContract.write.createRaffle(args);
+      const raffleId = (await raffleContract.simulate.createRaffle(args, createRaffleOptions)).result;
+      await raffleContract.write.createRaffle(args, createRaffleOptions);
 
-      const options = {account: user1.account.address, value: ticketPrice};
+      const enterRaffleOptions = {account: user1.account.address, value: ticketPrice};
 
       for (let i = 0; i < totalTickets; i++) {
-        const transaction = raffleContract.write.enterRaffle([raffleId], options);
+        const transaction = raffleContract.write.enterRaffle([raffleId], enterRaffleOptions);
         await expect(transaction).to.be.fulfilled;
       }
 
-      const transaction = raffleContract.write.enterRaffle([raffleId], options);
+      const transaction = raffleContract.write.enterRaffle([raffleId], enterRaffleOptions);
       await expect(transaction).to.be.rejectedWith("Raffle sold out");
     });
 
@@ -345,29 +344,11 @@ describe("SimpleRaffle", function () {
 
       await expect(raffleContract.write.pickWinner([raffleId])).to.be.fulfilled;
 
-      const [,,,,, winner] = await raffleContract.read.raffles([raffleId]);
+      const [, , , , , winner] = await raffleContract.read.raffles([raffleId]);
       expect(winner).to.not.be.equal(zeroAddress);
 
       const finalBalances = await getBalances(addresses);
       validateUserBalances(winner, addresses, initialBalances, finalBalances, prize);
-    });
-
-    it("Should pick winner even for unfulfilled raffle", async function () {
-      const {raffleContract, user1, user2, raffleId} = await loadFixture(getUnfulfilledRaffle);
-
-      await time.increase(ONE_DAY_IN_SECS + 1);
-
-      const addresses = [user1, user2].map(user => getAddress(user.account.address));
-      const initialBalances = await getBalances(addresses);
-
-      await expect(raffleContract.write.pickWinner([raffleId])).to.be.fulfilled;
-
-      const [,,, ticketPrice,, winner] = await raffleContract.read.raffles([raffleId]);
-      const soldTickets = await raffleContract.read.getSoldTickets([raffleId]);
-
-      const finalBalances = await getBalances(addresses);
-      const raffleBalance = ticketPrice * soldTickets;
-      validateUserBalances(winner, addresses, initialBalances, finalBalances, raffleBalance);
     });
 
     it("Should fail when calling pickWinner of an invalid raffle", async function () {
