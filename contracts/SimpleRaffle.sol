@@ -16,7 +16,7 @@ contract SimpleRaffle is ReentrancyGuard {
 
     event RaffleCreated(uint256 indexed raffleId, address indexed owner);
     event TicketPurchased(uint256 indexed raffleId, uint256 ticketId, address participant);
-    event WinnerPicked(uint256 indexed raffleId, address indexed winner);
+    event WinnerPicked(uint256 indexed raffleId, uint256 winningTicketId, address indexed winner);
 
     uint256 public numRaffles;
     mapping(uint256 => Raffle) public raffles;
@@ -86,8 +86,8 @@ contract SimpleRaffle is ReentrancyGuard {
         require(raffle.winner == address(0), "Winner has already been picked");
 
         uint256 seed = uint256(keccak256(abi.encodePacked(block.timestamp, blockhash(block.number - 1))));
-        uint256 randomNumber = uint256(seed) % soldTickets;
-        raffle.winner = payable(raffle.tickets[randomNumber]);
+        uint256 winningTicketId = uint256(seed) % soldTickets;
+        raffle.winner = payable(raffle.tickets[winningTicketId]);
 
         uint256 raffleBalance = raffle.ticketPrice * soldTickets;
         uint256 prize = raffle.prize;
@@ -98,6 +98,6 @@ contract SimpleRaffle is ReentrancyGuard {
             raffle.winner.transfer(raffleBalance);
         }
 
-        emit WinnerPicked(raffleId, raffle.winner);
+        emit WinnerPicked(raffleId, winningTicketId, raffle.winner);
     }
 }
