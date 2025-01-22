@@ -54,6 +54,7 @@ describe("SimpleRaffle", function () {
 
     return {
       raffleContract,
+      user1,
       raffleId,
       ticketId,
     };
@@ -131,8 +132,7 @@ describe("SimpleRaffle", function () {
       expect(raffle[2]).to.equal(expirationTimestamp);
       expect(raffle[3]).to.equal(ticketPrice);
       expect(raffle[4]).to.equal(maxUint256);
-      expect(raffle[5]).to.equal(0n);
-      expect(raffle[6]).to.equal(zeroAddress);
+      expect(raffle[5]).to.equal(zeroAddress);
     });
 
     it("Should fail if prize value is 0", async function () {
@@ -193,10 +193,14 @@ describe("SimpleRaffle", function () {
 
   describe("Enter Raffle", function () {
     it("Should enter a raffle", async function () {
-      const {raffleContract, raffleId} = await loadFixture(enterRaffle);
+      const {raffleContract, user1, raffleId, ticketId} = await loadFixture(enterRaffle);
 
-      const raffle = await raffleContract.read.raffles([raffleId]);
-      expect(raffle[5]).to.equal(1n);
+      const soldTickets = await raffleContract.read.getSoldTickets([raffleId]);
+      expect(soldTickets).to.equal(1n);
+      expect(ticketId).to.equal(soldTickets - 1n);
+
+      const ticketOwner = await raffleContract.read.getTicketOwner([raffleId, ticketId]);
+      expect(ticketOwner).to.equal(getAddress(user1.account.address));
     });
 
     it("Should allow an account to enter a raffle multiple times", async function () {
@@ -211,8 +215,8 @@ describe("SimpleRaffle", function () {
       await expect(transaction2).to.be.fulfilled;
       await expect(transaction3).to.be.fulfilled;
 
-      const raffle = await raffleContract.read.raffles([raffleId]);
-      expect(raffle[5]).to.equal(3n);
+      const soldTickets = await raffleContract.read.getSoldTickets([raffleId]);
+      expect(soldTickets).to.equal(3n);
     });
 
     it("Should fail when entering an invalid raffle", async function () {
@@ -225,8 +229,8 @@ describe("SimpleRaffle", function () {
       const transaction = raffleContract.write.enterRaffle([invalidId], options);
       await expect(transaction).to.be.rejectedWith("Invalid raffle ID");
 
-      const raffle = await raffleContract.read.raffles([raffleId]);
-      expect(raffle[5]).to.equal(0n);
+      const soldTickets = await raffleContract.read.getSoldTickets([raffleId]);
+      expect(soldTickets).to.equal(0n);
     });
 
     it("Should fail when entering a raffle sending an invalid Ether amount", async function () {
@@ -239,8 +243,8 @@ describe("SimpleRaffle", function () {
       const transaction = raffleContract.write.enterRaffle([raffleId], options);
       await expect(transaction).to.be.rejectedWith("Invalid value");
 
-      const raffle = await raffleContract.read.raffles([raffleId]);
-      expect(raffle[5]).to.equal(0n);
+      const soldTickets = await raffleContract.read.getSoldTickets([raffleId]);
+      expect(soldTickets).to.equal(0n);
     });
 
     it("Should fail when entering an expired raffle", async function () {
@@ -253,8 +257,8 @@ describe("SimpleRaffle", function () {
       const transaction = raffleContract.write.enterRaffle([raffleId], options);
       await expect(transaction).to.be.rejectedWith("Raffle has expired");
 
-      const raffle = await raffleContract.read.raffles([raffleId]);
-      expect(raffle[5]).to.equal(0n);
+      const soldTickets = await raffleContract.read.getSoldTickets([raffleId]);
+      expect(soldTickets).to.equal(0n);
     });
 
     it("Should fail when entering a sold out raffle", async function () {
@@ -289,8 +293,8 @@ describe("SimpleRaffle", function () {
       const transaction = raffleContract.write.enterRaffle([raffleId], options);
       await expect(transaction).to.be.rejectedWith("Owner can not enter raffle");
 
-      const raffle = await raffleContract.read.raffles([raffleId]);
-      expect(raffle[5]).to.equal(0n);
+      const soldTickets = await raffleContract.read.getSoldTickets([raffleId]);
+      expect(soldTickets).to.equal(0n);
     });
   });
 
@@ -341,7 +345,7 @@ describe("SimpleRaffle", function () {
 
       await expect(raffleContract.write.pickWinner([raffleId])).to.be.fulfilled;
 
-      const [,,,,,, winner] = await raffleContract.read.raffles([raffleId]);
+      const [,,,,, winner] = await raffleContract.read.raffles([raffleId]);
       expect(winner).to.not.be.equal(zeroAddress);
 
       const finalBalances = await getBalances(addresses);
@@ -358,7 +362,8 @@ describe("SimpleRaffle", function () {
 
       await expect(raffleContract.write.pickWinner([raffleId])).to.be.fulfilled;
 
-      const [,,, ticketPrice,, soldTickets, winner] = await raffleContract.read.raffles([raffleId]);
+      const [,,, ticketPrice,, winner] = await raffleContract.read.raffles([raffleId]);
+      const soldTickets = await raffleContract.read.getSoldTickets([raffleId]);
 
       const finalBalances = await getBalances(addresses);
       const raffleBalance = ticketPrice * soldTickets;

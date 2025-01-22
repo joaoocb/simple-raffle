@@ -10,9 +10,8 @@ contract SimpleRaffle is ReentrancyGuard {
         uint256 expirationTimestamp;
         uint256 ticketPrice;
         uint256 totalTickets;
-        uint256 soldTickets;
         address payable winner;
-        mapping(uint256 => address) tickets;
+        address[] tickets;
     }
 
     event RaffleCreated(uint256 indexed raffleId, address indexed owner);
@@ -21,6 +20,14 @@ contract SimpleRaffle is ReentrancyGuard {
 
     uint256 public numRaffles;
     mapping(uint256 => Raffle) public raffles;
+
+    function getSoldTickets(uint256 raffleId) external view returns (uint256) {
+        return raffles[raffleId].tickets.length;
+    }
+
+    function getTicketOwner(uint256 raffleId, uint256 ticketId) external view returns (address) {
+        return raffles[raffleId].tickets[ticketId];
+    }
 
     constructor() {
     }
@@ -50,31 +57,29 @@ contract SimpleRaffle is ReentrancyGuard {
         return raffleId;
     }
 
-    function enterRaffle(uint256 raffleId) external payable returns (uint256) {
+    function enterRaffle(uint256 raffleId) external payable returns (uint256 tickedId) {
         require(raffleId < numRaffles, "Invalid raffle ID");
 
         Raffle storage raffle = raffles[raffleId];
+        uint256 soldTickets = raffle.tickets.length;
 
         require(msg.value == raffle.ticketPrice, "Invalid value");
         require(block.timestamp < raffle.expirationTimestamp, "Raffle has expired");
-        require(raffle.soldTickets < raffle.totalTickets, "Raffle sold out");
+        require(soldTickets < raffle.totalTickets, "Raffle sold out");
         require(msg.sender != raffle.owner, "Owner can not enter raffle");
 
-        uint256 ticketId = raffle.soldTickets;
-        raffle.soldTickets = ticketId + 1;
+        raffle.tickets.push(msg.sender);
 
-        raffle.tickets[ticketId] = msg.sender;
+        emit TicketPurchased(raffleId, soldTickets, msg.sender);
 
-        emit TicketPurchased(raffleId, ticketId, msg.sender);
-
-        return ticketId;
+        return soldTickets;
     }
 
     function pickWinner(uint256 raffleId) public nonReentrant {
         require(raffleId < numRaffles, "Invalid raffle ID");
 
         Raffle storage raffle = raffles[raffleId];
-        uint256 soldTickets = raffle.soldTickets;
+        uint256 soldTickets = raffle.tickets.length;
 
         require(block.timestamp > raffle.expirationTimestamp, "Raffle has not ended yet");
         require(soldTickets != 0, "No participants in the raffle");
