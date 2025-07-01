@@ -23,14 +23,6 @@ contract SimpleRaffle is ReentrancyGuard {
     uint256 public numRaffles;
     mapping(uint256 => Raffle) public raffles;
 
-    function getSoldTickets(uint256 raffleId) external view returns (uint256) {
-        return raffles[raffleId].tickets.length;
-    }
-
-    function getTicketOwner(uint256 raffleId, uint256 ticketId) external view returns (address) {
-        return raffles[raffleId].tickets[ticketId];
-    }
-
     constructor() {
     }
 
@@ -112,4 +104,13 @@ contract SimpleRaffle is ReentrancyGuard {
 
         emit WinnerPaidOut(raffleId, raffle.winner, prize);
     }
+
+    function getSoldTickets(uint256 raffleId) external view returns (uint256) {
+        return raffles[raffleId].tickets.length;
+    }
+
+    function getTicketOwner(uint256 raffleId, uint256 ticketId) external view returns (address) {
+        return raffles[raffleId].tickets[ticketId];
+    }
+
 }
